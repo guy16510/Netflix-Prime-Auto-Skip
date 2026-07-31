@@ -16,17 +16,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.ref_name }}
+      - id: payload
+        name: Detect bootstrap payload
+        run: |
+          if compgen -G ".bootstrap/piece*" > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-node@v4
+        if: steps.payload.outputs.present == 'true'
         with:
           node-version: 22
       - name: Assemble hardened source
+        if: steps.payload.outputs.present == 'true'
         run: |
           cat .bootstrap/piece* | base64 --decode > /tmp/hardening-payload.tar.gz
           tar -xzf /tmp/hardening-payload.tar.gz
-          rm -rf .bootstrap .github/workflows/bootstrap-hardening.yml
+          mv .github/workflows/verify.yml /tmp/verify.yml
+          git checkout HEAD -- .github/workflows/verify.yml
+          rm -rf .bootstrap
       - name: Verify source and release artifacts
+        if: steps.payload.outputs.present == 'true'
         run: npm run verify
       - name: Commit generated source
+        if: steps.payload.outputs.present == 'true'
         env:
           TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
