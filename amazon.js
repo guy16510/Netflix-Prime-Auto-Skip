@@ -1,7 +1,12 @@
 (() => {
   "use strict";
 
-  const CHECK_INTERVAL_MS = 150;
+  const IDLE_CHECK_INTERVAL_MS = 500;
+  const ACTIVE_CHECK_INTERVAL_MS = 50;
+  const MUTATION_DEBOUNCE_MS = 25;
+  const SEEK_RETRY_MS = 200;
+  const AD_EXIT_GRACE_MS = 750;
+  const TARGET_REMAINING_SECONDS = 0.75;
   const MAX_SEEK_SECONDS = 90;
   const AD_TIMER_SELECTORS = [
     ".dv-player-fullscreen .atvwebplayersdk-ad-timer-remaining-time",
@@ -28,6 +33,9 @@
   let savedPlaybackRate = 1;
   let savedMuted = false;
   let lastSeekAt = 0;
+  let lastAdSignalAt = 0;
+  let nextCheckTimer = null;
+  let immediateCheckTimer = null;
 
   function isVisible(element) {
     if (!(element instanceof HTMLElement) || !element.isConnected) return false;
@@ -63,6 +71,11 @@
     return parts.reduce((total, part) => total * 60 + part, 0);
   }
 
+  function computeSeekSeconds(remaining) {
+    if (!Number.isFinite(remaining) || remaining <= TARGET_REMAINING_SECONDS) return 0;
+    return Math.min(MAX_SEEK_SECONDS, Math.max(0, remaining - TARGET_REMAINING_SECONDS));
+  }
+
   function findSkipButton() {
     const selected = firstVisible(SKIP_BUTTON_SELECTORS);
     if (selected instanceof HTMLButtonElement) return selected;
@@ -94,47 +107,94 @@
     activeVideo = null;
   }
 
+  function seekNearAdEnd(video, remaining, now) {
+    if (now - lastSeekAt < SEEK_RETRY_MS) return;
+    const skipSeconds = computeSeekSeconds(remaining);
+    if (skipSeconds <= 0) return;
+
+    let targetTime = video.currentTime + skipSeconds;
+    if (Number.isFinite(video.duration) && video.duration > 0) {
+      targetTime = Math.min(targetTime, Math.max(0, video.duration - 0.05));
+    }
+
+    try {
+      if (typeof video.fastSeek === "function") video.fastSeek(targetTime);
+      else video.currentTime = targetTime;
+      lastSeekAt = now;
+    } catch {
+      // Muting and accelerated playback remain active as the fallback.
+    }
+  }
+
   function handleAd() {
+    const now = Date.now();
     const timer = firstVisible(AD_TIMER_SELECTORS);
     const skipButton = findSkipButton();
     const adDetected = Boolean(timer || skipButton);
 
-    if (!adDetected) {
+    if (adDetected) lastAdSignalAt = now;
+
+    if (!adDetected && now - lastAdSignalAt > AD_EXIT_GRACE_MS) {
       restoreVideo();
-      return;
+      return false;
     }
 
-    if (skipButton) {
-      skipButton.click();
-    }
+    if (skipButton) skipButton.click();
 
     const video = findVideo();
-    if (!video) return;
+    if (!video) return adDetected;
     enterAdMode(video);
 
-    const remaining = parseRemainingSeconds(timer?.textContent || "");
-    const now = Date.now();
-    if (remaining && remaining > 1 && now - lastSeekAt > 700) {
-      const skipSeconds = Math.min(MAX_SEEK_SECONDS, Math.max(1, remaining - 1));
-      try {
-        video.currentTime += skipSeconds;
-        lastSeekAt = now;
-        return;
-      } catch {
-        // Fall back to accelerating the ad.
-      }
-    }
-
+    // Silence and accelerate immediately, then attempt to seek near the ad boundary.
     video.muted = true;
     if (video.playbackRate < 16) video.playbackRate = 16;
+
+    const remaining = parseRemainingSeconds(timer?.textContent || "");
+    if (remaining !== null) seekNearAdEnd(video, remaining, now);
+
+    return true;
   }
 
-  const observer = new MutationObserver(handleAd);
+  function scheduleNextCheck(active) {
+    if (nextCheckTimer !== null) clearTimeout(nextCheckTimer);
+    nextCheckTimer = setTimeout(() => {
+      nextCheckTimer = null;
+      scheduleNextCheck(handleAd());
+    }, active ? ACTIVE_CHECK_INTERVAL_MS : IDLE_CHECK_INTERVAL_MS);
+  }
+
+  function queueImmediateCheck() {
+    if (immediateCheckTimer !== null) return;
+    immediateCheckTimer = setTimeout(() => {
+      immediateCheckTimer = null;
+      if (nextCheckTimer !== null) {
+        clearTimeout(nextCheckTimer);
+        nextCheckTimer = null;
+      }
+      scheduleNextCheck(handleAd());
+    }, MUTATION_DEBOUNCE_MS);
+  }
+
+  const observer = new MutationObserver(queueImmediateCheck);
 
   function start() {
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    setInterval(handleAd, CHECK_INTERVAL_MS);
-    handleAd();
+    queueImmediateCheck();
+  }
+
+  if (globalThis.__PRIME_AD_SKIPPER_TEST__ === true) {
+    globalThis.__primeAdSkipperTest = {
+      parseRemainingSeconds,
+      computeSeekSeconds,
+      constants: {
+        IDLE_CHECK_INTERVAL_MS,
+        ACTIVE_CHECK_INTERVAL_MS,
+        MUTATION_DEBOUNCE_MS,
+        SEEK_RETRY_MS,
+        TARGET_REMAINING_SECONDS,
+        MAX_SEEK_SECONDS
+      }
+    };
   }
 
   if (document.documentElement) start();

@@ -18,24 +18,43 @@ The extension has:
 
 Everything runs locally as content scripts.
 
+## Build and test
+
+Node.js 18 or newer is required. There are no npm dependencies.
+
+```bash
+npm test
+npm run build
+```
+
+The build output is written to `dist/extension` and can be loaded directly as an unpacked browser extension.
+
+Run both steps together with:
+
+```bash
+npm run verify
+```
+
 ## Install in Chrome or Edge
 
-1. Open `chrome://extensions` or `edge://extensions`.
-2. Enable Developer mode.
-3. Select **Load unpacked**.
-4. Choose this repository folder.
+1. Run `npm run build`.
+2. Open `chrome://extensions` or `edge://extensions`.
+3. Enable Developer mode.
+4. Select **Load unpacked**.
+5. Choose `dist/extension`.
 
 ## Install temporarily in Firefox
 
-1. Open `about:debugging#/runtime/this-firefox`.
-2. Select **Load Temporary Add-on**.
-3. Choose `manifest.json`.
+1. Run `npm run build`.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Select **Load Temporary Add-on**.
+4. Choose `dist/extension/manifest.json`.
 
 ## Behavior
 
 ### Prime Video
 
-The extension watches for Prime Video ad timers and skip controls. It first clicks an available skip button. For timed ads, it seeks ahead in conservative chunks. If seeking is blocked, it mutes and accelerates the ad until playback returns to the program.
+The extension watches for Prime Video ad timers and skip controls. Idle checks run twice per second, while detected ads switch to rapid checks. Once an ad signal appears, it immediately mutes and accelerates playback, clicks an available skip control, and seeks to approximately the final 0.75 seconds of timed ads. If seeking is blocked, muted accelerated playback remains active until the program returns.
 
 ### YouTube
 
@@ -43,6 +62,6 @@ The extension clicks known skip buttons, closes overlays, removes promoted page 
 
 ## Scope
 
-This fork intentionally removes Netflix, Disney+, Crunchyroll, Max, Paramount+, ratings, profiles, statistics, settings UI, translations, mobile user-agent changes, build tooling, and all third-party dependencies.
+This fork intentionally removes Netflix, Disney+, Crunchyroll, Max, Paramount+, ratings, profiles, statistics, settings UI, translations, mobile user-agent changes, the original build system, and all third-party dependencies.
 
 The repository was originally forked from `Dreamlinerm/Netflix-Prime-Auto-Skip`. The current implementation is a minimal rewrite focused on Prime Video and YouTube.

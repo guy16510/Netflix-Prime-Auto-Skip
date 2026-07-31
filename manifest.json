@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Prime Video + YouTube Ad Skipper",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Locally skips or accelerates ads on Prime Video and YouTube. No telemetry, analytics, storage, or remote requests.",
   "content_scripts": [
     {
