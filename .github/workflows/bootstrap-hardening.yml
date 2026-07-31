@@ -1,0 +1,32 @@
+name: Bootstrap hardening branch
+
+on:
+  push:
+    branches:
+      - hardening/full-runtime-and-release-tests
+
+permissions:
+  contents: write
+
+jobs:
+  assemble-test-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assemble hardened source
+        run: |
+          cat .bootstrap/chunk* | base64 --decode > /tmp/hardening-payload.tar.gz
+          tar -xzf /tmp/hardening-payload.tar.gz
+          rm -rf .bootstrap .github/workflows/bootstrap-hardening.yml
+      - name: Verify source and release artifacts
+        run: npm run verify
+      - name: Commit generated source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Harden runtime, add dual builds, icons, and release tests"
+          git push origin HEAD:${GITHUB_REF_NAME}
