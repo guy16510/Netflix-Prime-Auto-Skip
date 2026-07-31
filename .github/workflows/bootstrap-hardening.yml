@@ -21,7 +21,7 @@ jobs:
           node-version: 22
       - name: Assemble hardened source
         run: |
-          cat .bootstrap/chunk* | base64 --decode > /tmp/hardening-payload.tar.gz
+          cat .bootstrap/piece* | base64 --decode > /tmp/hardening-payload.tar.gz
           tar -xzf /tmp/hardening-payload.tar.gz
           rm -rf .bootstrap .github/workflows/bootstrap-hardening.yml
       - name: Verify source and release artifacts
