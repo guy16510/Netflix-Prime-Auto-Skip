@@ -3,6 +3,7 @@
 
   const IDLE_CHECK_INTERVAL_MS = 500;
   const ACTIVE_CHECK_INTERVAL_MS = 50;
+  const MUTATION_DEBOUNCE_MS = 25;
   const SEEK_RETRY_MS = 200;
   const AD_EXIT_GRACE_MS = 750;
   const TARGET_REMAINING_SECONDS = 0.75;
@@ -34,7 +35,7 @@
   let lastSeekAt = 0;
   let lastAdSignalAt = 0;
   let nextCheckTimer = null;
-  let checkQueued = false;
+  let immediateCheckTimer = null;
 
   function isVisible(element) {
     if (!(element instanceof HTMLElement) || !element.isConnected) return false;
@@ -156,19 +157,22 @@
 
   function scheduleNextCheck(active) {
     if (nextCheckTimer !== null) clearTimeout(nextCheckTimer);
-    nextCheckTimer = setTimeout(runScheduledCheck, active ? ACTIVE_CHECK_INTERVAL_MS : IDLE_CHECK_INTERVAL_MS);
-  }
-
-  function runScheduledCheck() {
-    nextCheckTimer = null;
-    checkQueued = false;
-    scheduleNextCheck(handleAd());
+    nextCheckTimer = setTimeout(() => {
+      nextCheckTimer = null;
+      scheduleNextCheck(handleAd());
+    }, active ? ACTIVE_CHECK_INTERVAL_MS : IDLE_CHECK_INTERVAL_MS);
   }
 
   function queueImmediateCheck() {
-    if (checkQueued) return;
-    checkQueued = true;
-    queueMicrotask(runScheduledCheck);
+    if (immediateCheckTimer !== null) return;
+    immediateCheckTimer = setTimeout(() => {
+      immediateCheckTimer = null;
+      if (nextCheckTimer !== null) {
+        clearTimeout(nextCheckTimer);
+        nextCheckTimer = null;
+      }
+      scheduleNextCheck(handleAd());
+    }, MUTATION_DEBOUNCE_MS);
   }
 
   const observer = new MutationObserver(queueImmediateCheck);
@@ -185,6 +189,7 @@
       constants: {
         IDLE_CHECK_INTERVAL_MS,
         ACTIVE_CHECK_INTERVAL_MS,
+        MUTATION_DEBOUNCE_MS,
         SEEK_RETRY_MS,
         TARGET_REMAINING_SECONDS,
         MAX_SEEK_SECONDS
