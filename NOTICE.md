@@ -1,5 +1,7 @@
 # Notice
 
-This repository retains its Git history from the original `Dreamlinerm/Netflix-Prime-Auto-Skip` project.
+This repository retains its Git history from the original `Dreamlinerm/Netflix-Prime-Auto-Skip` project by Marvin Krebber.
 
-The current runtime implementation was rewritten as a minimal, dependency-free extension focused on Amazon Prime Video and YouTube. No claim is made here about licensing of earlier upstream revisions. Review the upstream project history before redistributing code from those revisions.
+The runtime implementation was substantially rewritten by `guy16510` on July 30, 2026 as a minimal, dependency-free extension focused on Amazon Prime Video and YouTube.
+
+This modified version is distributed under the GNU General Public License, version 3. See `License`.
