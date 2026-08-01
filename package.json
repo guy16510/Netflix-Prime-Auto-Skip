@@ -1,11 +1,12 @@
 {
-  "name": "prime-video-youtube-ad-skipper",
-  "version": "2.0.1",
+  "name": "prime-video-ad-skipper",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node test.mjs",
     "build": "node build.mjs",
-    "verify": "npm test && npm run build"
+    "test:build": "node test-build.mjs",
+    "verify": "npm test && npm run build && npm run test:build"
   }
 }

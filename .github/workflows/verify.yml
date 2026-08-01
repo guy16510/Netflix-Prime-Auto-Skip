@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - fix/prime-video-one-second-skip
+      - hardening/full-runtime-and-release-tests
   pull_request:
 
 permissions:
@@ -18,10 +18,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm test
-      - run: npm run build
+      - run: npm run verify
       - uses: actions/upload-artifact@v4
         with:
-          name: prime-video-youtube-ad-skipper
-          path: dist/extension
+          name: prime-video-ad-skipper-builds
+          path: |
+            dist/extension
+            dist/extension-with-youtube
+            dist/*.zip
+            dist/*.sha256
           if-no-files-found: error
